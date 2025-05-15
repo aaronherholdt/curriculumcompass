@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                         String        @id @default(uuid())
+  email                      String        @unique
+  password                   String
+  name                       String
+  lastLogin                  DateTime      @default(now())
+  isVerified                 Boolean       @default(false)
+  resetPasswordToken         String?
+  resetPasswordExpiresAt     DateTime?
+  verificationToken          String?
+  verificationTokenExpiresAt DateTime?
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+  childProfiles              ChildProfile[]
+  subscription               Subscription?
+  billingHistory             BillingHistory[]
+
+  @@map("user")
+}
+
+model ChildProfile {
+  id              String        @id @default(uuid())
+  name            String
+  grade           String
+  interests       String[]
+  learningStyles  String[]
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonPlans     LessonPlan[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("child_profile")
+}
+
+model LessonPlan {
+  id              String        @id @default(uuid())
+  title           String
+  subject         String
+  content         String?
+  childProfileId  String
+  childProfile    ChildProfile  @relation(fields: [childProfileId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("lesson_plan")
+}
+
+model Subscription {
+  id                String      @id @default(uuid())
+  plan              String      @default("Free")
+  isActive          Boolean     @default(false)
+  startDate         DateTime?
+  endDate           DateTime?
+  price             Float       @default(0)
+  nextBillingDate   DateTime?
+  paymentMethod     String?
+  lastPaymentDate   DateTime?
+  lastPaymentAmount Float?
+  paypalOrderId     String?
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  billingRecords    BillingRecord[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@map("subscription")
+}
+
+model BillingRecord {
+  id              String        @id @default(uuid())
+  date            DateTime
+  plan            String
+  amount          Float
+  status          String
+  paypalOrderId   String?
+  subscriptionId  String
+  subscription    Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("billing_record")
+}
+
+model BillingHistory {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount          Float
+  description     String
+  paymentMethod   String
+  paymentDate     DateTime
+  status          String
+  paypalOrderId   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("billing_history")
+}
