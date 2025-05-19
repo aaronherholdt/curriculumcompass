@@ -38,7 +38,7 @@ export const signup = async (req, res) => {
 		});
 
 		// jwt
-		generateTokenAndSetCookie(res, user.id);
+		await generateTokenAndSetCookie(res, user.id);
 
 		await sendVerificationEmail(user.email, verificationToken);
 
@@ -105,7 +105,7 @@ export const login = async (req, res) => {
 			return res.status(400).json({ success: false, message: "Invalid credentials" });
 		}
 
-		generateTokenAndSetCookie(res, user.id);
+		await generateTokenAndSetCookie(res, user.id);
 
 		const updatedUser = await User.update(user.id, {
 			lastLogin: new Date()

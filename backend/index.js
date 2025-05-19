@@ -20,11 +20,9 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const __dirname = path.resolve();
 
-// Update CORS configuration for both development and production
+// Update CORS configuration to always allow http://localhost:5173
 const corsOptions = {
-	origin: process.env.NODE_ENV === "production" 
-		? [/\.vercel\.app$/, /localhost/] 
-		: "http://localhost:5173",
+	origin: "http://localhost:5173",
 	credentials: true
 };
 

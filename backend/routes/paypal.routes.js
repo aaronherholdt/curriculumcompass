@@ -1,21 +1,13 @@
 import express from 'express';
-import { createOrder, captureOrder } from '../controllers/paypal.controller.js';
-import { isAuthenticated } from '../middleware/auth.middleware.js';
+import { createSubscription, handleWebhook } from '../controllers/paypal.controller.js';
+import { protectRoute } from '../middleware/protect.route.js';
 
 const router = express.Router();
 
-/**
- * @route   POST /api/paypal/create-order
- * @desc    Create a PayPal order for subscription payment
- * @access  Private
- */
-router.post('/create-order', isAuthenticated, createOrder);
+// Create a subscription (requires authentication)
+router.post('/create-subscription', protectRoute, createSubscription);
 
-/**
- * @route   POST /api/paypal/capture-order
- * @desc    Capture a PayPal order after user approves payment
- * @access  Private
- */
-router.post('/capture-order', isAuthenticated, captureOrder);
+// Webhook endpoint (does not require authentication)
+router.post('/webhook', handleWebhook);
 
 export default router; 

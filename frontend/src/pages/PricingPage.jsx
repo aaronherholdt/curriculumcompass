@@ -1,14 +1,64 @@
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { CreditCard, Check, ArrowRight, LogIn } from "lucide-react";
+import { CreditCard, Check, ArrowRight, LogIn, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
+
+const SubscriptionModal = ({ isOpen, onClose, email, subscriptionId, onGoToDashboard }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-gray-800 rounded-xl p-6 max-w-md w-full relative"
+      >
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-white"
+        >
+          <X size={20} />
+        </button>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check className="text-white" size={30} />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Subscription Successful!</h3>
+          <p className="text-gray-300 mb-2">Your premium plan has been activated.</p>
+          <p className="text-gray-300 mb-6">
+            Subscription ID: <span className="text-green-400 font-mono text-sm">{subscriptionId}</span>
+          </p>
+          <p className="text-gray-300 mb-6">
+            This subscription is tied to your email: <span className="text-green-400">{email}</span>
+          </p>
+          
+          <motion.button
+            className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white 
+            font-bold rounded-lg shadow-lg hover:from-green-600
+            hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+            focus:ring-offset-gray-900 transition duration-200 flex items-center justify-center"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onGoToDashboard}
+          >
+            Go to Dashboard
+            <ArrowRight className="ml-2" size={20} />
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const PricingPage = () => {
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [subscriptionId, setSubscriptionId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [orderId, setOrderId] = useState(null);
+  const [planId, setPlanId] = useState("P-0D113314S2492772WNAMHUZI");
+  const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -19,7 +69,7 @@ const PricingPage = () => {
       const script = document.createElement('script');
       // Replace "test" with your actual PayPal sandbox client ID 
       // In production, this should be configured in your environment
-      script.src = "https://www.paypal.com/sdk/js?client-id=AXn3XQb2OVZ5krH8HoyCG0X15U8RII_EVWqC4gBhokrYrX_QrMFKxlK2iXRr0XAgOunkvHyX73JdUyf4&merchant-id=GDZYAVB7S9QUW&currency=USD";
+      script.src = "https://www.paypal.com/sdk/js?client-id=AY25jqOVC-OKmDTcJzZfoOMbxV93fzjU4PKUtiaWr-GdOVJdll6CgD_JEDW6EqMrq14xRgTnYztybY09&currency=USD&vault=true&intent=subscription";
       script.async = true;
       script.onload = () => console.log("PayPal SDK loaded");
       document.body.appendChild(script);
@@ -27,145 +77,76 @@ const PricingPage = () => {
     loadPayPalScript();
   }, []);
 
-  // Render PayPal buttons when container exists and orderId is available
+  // Render PayPal buttons when container exists
   useEffect(() => {
-    if (showPaymentOptions && orderId) {
-      renderPayPalButtons(orderId);
+    if (showPaymentOptions) {
+      renderPayPalButtons();
     }
-  }, [showPaymentOptions, orderId]);
+  }, [showPaymentOptions]);
 
-  // Auto-redirect to dashboard after payment success
-  useEffect(() => {
-    let redirectTimer;
-    if (paymentSuccess) {
-      // Redirect to dashboard after 2 seconds
-      redirectTimer = setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
-    }
-    return () => {
-      if (redirectTimer) clearTimeout(redirectTimer);
-    };
-  }, [paymentSuccess, navigate]);
-
-  const handleSubscribeClick = async () => {
+  const handleSubscribeClick = () => {
     // Verify the user is authenticated
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
-    try {
-      setLoading(true);
-      
-      // Call backend to create a PayPal order
-      const response = await fetch('/api/paypal/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          plan: 'premium',
-          price: 20.00
-        }),
-        credentials: 'include', // Important to include cookies for authentication
-      });
-
-      const responseText = await response.text(); // Read body as text first
-
-      if (!response.ok) {
-        // Server returned an error status code. Log the text content.
-        console.error(`Server error (status ${response.status}): ${responseText}`);
-        // Re-throw to be caught by the main catch block for consistent error handling.
-        throw new Error(`Server responded with status ${response.status}. Body: ${responseText.substring(0, 200)}...`);
-      }
-
-      let orderData;
-      try {
-        orderData = JSON.parse(responseText); // Parse the text as JSON
-      } catch (parseError) {
-        // JSON parsing failed. responseText contains the problematic content.
-        console.error('Failed to parse JSON response. Raw text:', responseText);
-        // Re-throw to be caught by the main catch block.
-        // The original error was at line 50 (await response.json())
-        throw new Error(`Failed to parse server response as JSON (original error at line 50). Raw text: ${responseText.substring(0, 200)}...`);
-      }
-      
-      if (orderData.orderId) {
-        // Store the orderId in state and show payment options
-        setOrderId(orderData.orderId);
-        setShowPaymentOptions(true);
-      } else {
-        console.error('Failed to create PayPal order');
-      }
-    } catch (error) {
-      console.error('Error creating PayPal order:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Show payment options immediately - we'll create the subscription with PayPal directly
+    setShowPaymentOptions(true);
   };
 
-  const renderPayPalButtons = (orderId) => {
+  const renderPayPalButtons = () => {
     // Make sure PayPal SDK is loaded
     if (window.paypal) {
       // Clear existing buttons container if any
       const container = document.getElementById('paypal-button-container');
       if (container) container.innerHTML = '';
       
-      // Render the PayPal buttons
+              // Render the PayPal buttons
       window.paypal.Buttons({
-        // Set up the transaction
-        createOrder: () => {
-          return orderId;
+        // Set up the subscription
+        createSubscription: (data, actions) => {
+          return actions.subscription.create({
+            plan_id: planId
+          });
         },
         
-        // Finalize the transaction
-        onApprove: async (data, actions) => {
+        // Handle subscription approval
+        onApprove: async (data) => {
           try {
             setLoading(true);
+            console.log("Subscription approved, ID:", data.subscriptionID);
             
-            // Call your server to capture the order
-            const response = await fetch('/api/paypal/capture-order', {
+            // Store subscription ID for display in modal
+            setSubscriptionId(data.subscriptionID);
+
+            const response = await fetch('http://localhost:5000/api/paypal/create-subscription', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                orderId: data.orderID
+                subscriptionId: data.subscriptionID
               }),
-              credentials: 'include', // Include cookies for authentication
+              credentials: 'include',
             });
-            
-            // Check if the response is ok before trying to parse JSON
+
             if (!response.ok) {
               const errorText = await response.text();
               throw new Error(`Server responded with status ${response.status}: ${errorText}`);
             }
-            
-            // Check for empty response
-            const responseText = await response.text();
-            if (!responseText.trim()) {
-              throw new Error('Server returned an empty response');
-            }
-            
-            // Parse the JSON
-            let captureData;
-            try {
-              captureData = JSON.parse(responseText);
-            } catch (parseError) {
-              throw new Error(`Invalid JSON response: ${responseText}`);
-            }
-            
-            // If successful, show success message
-            if (captureData.success) {
+
+            const subscriptionData = await response.json();
+
+            if (subscriptionData.success) {
               setPaymentSuccess(true);
               setShowPaymentOptions(false);
-              // Auto-redirect handled by the useEffect
+              setShowModal(true); // Show success modal
             } else {
-              console.error('Payment capture failed:', captureData);
+              console.error('Subscription creation failed:', subscriptionData);
             }
           } catch (error) {
-            console.error('Error capturing payment:', error);
+            console.error('Error processing subscription:', error);
           } finally {
             setLoading(false);
           }
@@ -182,41 +163,23 @@ const PricingPage = () => {
     navigate('/login');
   };
 
+  const closeModal = () => {
+    setShowModal(false);
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="max-w-md w-full bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden"
-    >
-      <div className="p-8">
-        <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
-          Premium Plan
-        </h2>
-        
-        {paymentSuccess ? (
-          <div className="bg-gray-700 bg-opacity-50 rounded-xl p-6 mb-6 text-center">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Check className="text-white" size={30} />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Payment Successful!</h3>
-            <p className="text-gray-300 mb-6">Your subscription has been activated successfully.</p>
-            <p className="text-gray-300 mb-6">Redirecting to dashboard...</p>
-            
-            <motion.button
-              className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white 
-              font-bold rounded-lg shadow-lg hover:from-green-600
-              hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
-              focus:ring-offset-gray-900 transition duration-200 flex items-center justify-center"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleGoToDashboard}
-            >
-              Go to Dashboard
-              <ArrowRight className="ml-2" size={20} />
-            </motion.button>
-          </div>
-        ) : (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-md w-full bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden"
+      >
+        <div className="p-8">
+          <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
+            Premium Plan
+          </h2>
+          
           <div className="bg-gray-700 bg-opacity-50 rounded-xl p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-white">Monthly</h3>
@@ -279,18 +242,27 @@ const PricingPage = () => {
               </div>
             )}
           </div>
-        )}
-      </div>
-      <div className="px-8 py-4 bg-gray-900 bg-opacity-50 flex justify-center">
-        <p className="text-sm text-gray-400">
-          Already verified?{" "}
-          <Link to="/verify-email" className="text-green-400 hover:underline">
-            Verify Email
-          </Link>
-        </p>
-      </div>
-    </motion.div>
+        </div>
+        <div className="px-8 py-4 bg-gray-900 bg-opacity-50 flex justify-center">
+          <p className="text-sm text-gray-400">
+            Already verified?{" "}
+            <Link to="/verify-email" className="text-green-400 hover:underline">
+              Verify Email
+            </Link>
+          </p>
+        </div>
+      </motion.div>
+      
+      {/* Subscription Success Modal */}
+      <SubscriptionModal 
+        isOpen={showModal}
+        onClose={closeModal}
+        email={user?.email || ""}
+        subscriptionId={subscriptionId}
+        onGoToDashboard={handleGoToDashboard}
+      />
+    </>
   );
 };
 
-export default PricingPage; 
+export default PricingPage;

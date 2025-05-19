@@ -14,6 +14,7 @@ model User {
   name                       String
   lastLogin                  DateTime      @default(now())
   isVerified                 Boolean       @default(false)
+  isPremium                  Boolean       @default(false)
   resetPasswordToken         String?
   resetPasswordExpiresAt     DateTime?
   verificationToken          String?
@@ -57,23 +58,40 @@ model LessonPlan {
 
 model Subscription {
   id                String      @id @default(uuid())
-  plan              String      @default("Free")
-  isActive          Boolean     @default(false)
+  subscriptionId    String      @unique // PayPal subscription ID
+  status            String      // ACTIVE, CANCELLED, SUSPENDED, etc.
+  planId            String      // PayPal plan ID
+  plan              String      @default("Premium")
+  isActive          Boolean     @default(true)
   startDate         DateTime?
   endDate           DateTime?
-  price             Float       @default(0)
+  price             Float       @default(20.00)
   nextBillingDate   DateTime?
-  paymentMethod     String?
-  lastPaymentDate   DateTime?
-  lastPaymentAmount Float?
-  paypalOrderId     String?
+  paypalData        Json?       // Store full PayPal subscription data
   userId            String      @unique
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments          Payment[]
   billingRecords    BillingRecord[]
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
   @@map("subscription")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  saleId          String        @unique // PayPal sale/transaction ID
+  subscriptionId  String        // PayPal subscription ID
+  subscription    Subscription  @relation(fields: [subscriptionId], references: [subscriptionId])
+  amount          Float
+  currency        String
+  status          String        // completed, denied, refunded, etc.
+  paymentDate     DateTime
+  paypalData      Json?         // Store full PayPal payment data
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payment")
 }
 
 model BillingRecord {

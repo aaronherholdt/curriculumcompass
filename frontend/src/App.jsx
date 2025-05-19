@@ -35,11 +35,13 @@ const ProtectedRoute = ({ children }) => {
 	return children;
 };
 
-// redirect authenticated users to the dashboard
+// Only redirect authenticated users if they manually navigate to auth pages,
+// not when clicking buttons from landing page
 const RedirectAuthenticatedUser = ({ children }) => {
 	const { isAuthenticated, user } = useAuthStore();
 
-	if (isAuthenticated && user.isVerified) {
+	// Only redirect if user is properly authenticated AND verified
+	if (isAuthenticated && user?.isVerified) {
 		return <Navigate to='/dashboard' replace />;
 	}
 
@@ -50,6 +52,7 @@ function App() {
 	const { isCheckingAuth, checkAuth } = useAuthStore();
 
 	useEffect(() => {
+		// Check authentication status when app loads
 		checkAuth();
 	}, [checkAuth]);
 
